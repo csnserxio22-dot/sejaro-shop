@@ -70,8 +70,8 @@ export default async function handler(req, res) {
     `👤 <b>Клиент:</b>\n` +
     `ФИО: ${esc(fio)}\n` +
     `Телефон: ${esc(phone)}\n` +
-    `Город: ${esc(city)}\n` +
-    `СДЭК: ${esc(cdek)}\n\n` +
+    `Страна, город: ${esc(city)}\n` +
+    `Пункт выдачи СДЭК: ${esc(cdek)}\n\n` +
     `Telegram: ${esc(uname)} (id ${user.id})`;
 
   const result = await tg('sendMessage', {

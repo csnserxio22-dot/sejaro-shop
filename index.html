@@ -86,6 +86,12 @@
       background: #3a2a12; color: #ffcf8f; border-radius: 12px;
       padding: 12px 14px; font-size: 14px; margin-bottom: 12px;
     }
+    .info-note {
+      background: rgba(52, 224, 196, 0.10);
+      border: 1px solid rgba(52, 224, 196, 0.30);
+      color: var(--text); border-radius: 12px;
+      padding: 12px 14px; font-size: 13.5px; line-height: 1.4; margin: 14px 0 2px;
+    }
     .success { text-align: center; padding: 48px 16px; }
     .success .check {
       width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 18px;
@@ -114,14 +120,16 @@
 
     <div class="summary" id="order-summary"></div>
 
+    <div class="info-note">ℹ️ Данная информация нужна для создания отправления в СДЭК.</div>
+
     <div class="form">
-      <label>Фамилия и имя</label>
-      <input id="f-fio" type="text" autocomplete="name" placeholder="Иванов Сергей" />
-      <label>Телефон для связи</label>
+      <label>ФИО</label>
+      <input id="f-fio" type="text" autocomplete="name" placeholder="Иванов Иван Иванович" />
+      <label>Телефон</label>
       <input id="f-phone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00" />
-      <label>Город доставки</label>
-      <input id="f-city" type="text" placeholder="Красноярск" />
-      <label>Адрес / номер отделения СДЭК</label>
+      <label>Страна и город</label>
+      <input id="f-city" type="text" placeholder="Россия, Красноярск" />
+      <label>Адрес пункта выдачи СДЭК</label>
       <input id="f-cdek" type="text" placeholder="ул. Авиаторов, 68" />
     </div>
   </section>
