@@ -86,6 +86,14 @@
       background: #3a2a12; color: #ffcf8f; border-radius: 12px;
       padding: 12px 14px; font-size: 14px; margin-bottom: 12px;
     }
+    .success { text-align: center; padding: 48px 16px; }
+    .success .check {
+      width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 18px;
+      background: var(--accent); color: var(--btn-text);
+      font-size: 40px; line-height: 72px; font-weight: 800;
+    }
+    .success p { color: var(--hint); font-size: 15px; line-height: 1.45; margin: 8px 0 22px; }
+    .success .add { padding: 12px 22px; }
     .backlink { color: var(--link); font-size: 14px; background: none; border: none; padding: 8px 0; cursor: pointer; }
   </style>
 </head>
@@ -115,6 +123,16 @@
       <input id="f-city" type="text" placeholder="Красноярск" />
       <label>Адрес / номер отделения СДЭК</label>
       <input id="f-cdek" type="text" placeholder="ул. Авиаторов, 68" />
+    </div>
+  </section>
+
+  <!-- УСПЕХ -->
+  <section id="success-view" class="hidden">
+    <div class="success">
+      <div class="check">✓</div>
+      <h1>Заказ принят!</h1>
+      <p>Спасибо! Менеджер свяжется с вами для подтверждения заказа и согласования оплаты.</p>
+      <button class="add" id="close-app">Закрыть</button>
     </div>
   </section>
 
@@ -292,14 +310,9 @@
         if (data.ok) {
           tg.MainButton.hideProgress();
           if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-          tg.showPopup(
-            {
-              title: 'Заказ принят!',
-              message: 'Спасибо! Менеджер свяжется с вами для подтверждения и согласования оплаты.',
-              buttons: [{ type: 'ok' }],
-            },
-            () => tg.close()
-          );
+          showSuccess();
+          // Авто-закрытие через пару секунд; кнопка «Закрыть» — на случай сбоя.
+          setTimeout(() => { try { tg.close(); } catch (e) {} }, 3000);
         } else {
           tg.MainButton.hideProgress();
           alertMsg('Не удалось отправить заказ. Попробуйте ещё раз.');
@@ -309,6 +322,19 @@
         alertMsg('Ошибка соединения. Проверьте интернет и попробуйте снова.');
       }
     }
+
+    function showSuccess() {
+      view = 'success';
+      el('catalog-view').classList.add('hidden');
+      el('checkout-view').classList.add('hidden');
+      el('success-view').classList.remove('hidden');
+      if (tg) {
+        tg.MainButton.hide();
+        if (tg.BackButton) tg.BackButton.hide();
+      }
+      window.scrollTo(0, 0);
+    }
+    el('close-app').onclick = () => { try { tg && tg.close(); } catch (e) {} };
 
     function alertMsg(m) {
       if (tg && tg.showAlert) tg.showAlert(m);
