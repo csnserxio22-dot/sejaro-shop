@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Магазин Sejaro</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: var(--tg-theme-bg-color, #0f1720);
+      --sec-bg: var(--tg-theme-secondary-bg-color, #182430);
+      --text: var(--tg-theme-text-color, #ffffff);
+      --hint: var(--tg-theme-hint-color, #8a97a5);
+      --link: var(--tg-theme-link-color, #34e0c4);
+      --btn: var(--tg-theme-button-color, #34e0c4);
+      --btn-text: var(--tg-theme-button-text-color, #06231f);
+      --accent: #34e0c4;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 12px 12px 120px;
+    }
+    h1 { font-size: 20px; margin: 4px 0 2px; }
+    .sub { color: var(--hint); font-size: 13px; margin-bottom: 14px; }
+
+    .card {
+      display: flex;
+      gap: 12px;
+      background: var(--sec-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    .thumb {
+      width: 64px; height: 64px; flex: 0 0 64px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #1f8f7c, #2f6fb0);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 13px; text-align: center; color: #fff;
+      overflow: hidden;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .info { flex: 1; min-width: 0; }
+    .name { font-weight: 700; font-size: 15px; }
+    .desc { color: var(--hint); font-size: 12px; margin: 2px 0 6px; line-height: 1.3; }
+    .price { font-weight: 700; font-size: 15px; }
+
+    .qty { display: flex; align-items: center; gap: 10px; }
+    .qty button {
+      width: 34px; height: 34px; border-radius: 10px; border: none;
+      background: var(--accent); color: var(--btn-text);
+      font-size: 20px; font-weight: 700; line-height: 1; cursor: pointer;
+    }
+    .qty button:disabled { opacity: .35; }
+    .qty .val { min-width: 20px; text-align: center; font-weight: 700; }
+    .add {
+      border: none; border-radius: 10px; padding: 8px 14px;
+      background: var(--accent); color: var(--btn-text);
+      font-weight: 700; font-size: 14px; cursor: pointer; white-space: nowrap;
+    }
+
+    .form label { display: block; font-size: 13px; color: var(--hint); margin: 12px 0 6px; }
+    .form input {
+      width: 100%; padding: 12px 14px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--sec-bg);
+      color: var(--text); font-size: 16px; outline: none;
+    }
+    .form input:focus { border-color: var(--accent); }
+
+    .summary {
+      background: var(--sec-bg); border: 1px solid var(--border);
+      border-radius: 16px; padding: 14px; margin-bottom: 12px;
+    }
+    .summary .row { display: flex; justify-content: space-between; font-size: 14px; margin: 4px 0; }
+    .summary .total { font-weight: 800; font-size: 16px; margin-top: 8px; }
+
+    .hidden { display: none !important; }
+    .notice {
+      background: #3a2a12; color: #ffcf8f; border-radius: 12px;
+      padding: 12px 14px; font-size: 14px; margin-bottom: 12px;
+    }
+    .backlink { color: var(--link); font-size: 14px; background: none; border: none; padding: 8px 0; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="notice" class="notice hidden"></div>
+
+  <!-- КАТАЛОГ -->
+  <section id="catalog-view">
+    <h1>🏪 Магазин Sejaro</h1>
+    <div class="sub">Выберите товары и оформите заказ. Оплату согласует менеджер.</div>
+    <div id="catalog"></div>
+  </section>
+
+  <!-- ОФОРМЛЕНИЕ -->
+  <section id="checkout-view" class="hidden">
+    <button class="backlink" id="back-to-catalog">← Назад к каталогу</button>
+    <h1>Оформление заказа</h1>
+
+    <div class="summary" id="order-summary"></div>
+
+    <div class="form">
+      <label>Фамилия и имя</label>
+      <input id="f-fio" type="text" autocomplete="name" placeholder="Иванов Сергей" />
+      <label>Телефон для связи</label>
+      <input id="f-phone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00" />
+      <label>Город доставки</label>
+      <input id="f-city" type="text" placeholder="Красноярск" />
+      <label>Адрес / номер отделения СДЭК</label>
+      <input id="f-cdek" type="text" placeholder="ул. Авиаторов, 68" />
+    </div>
+  </section>
+
+  <script>
+    const tg = window.Telegram && window.Telegram.WebApp;
+    const fmt = (n) => n.toLocaleString('ru-RU');
+
+    let products = [];
+    const cart = {}; // id -> qty
+    let view = 'catalog';
+
+    const el = (id) => document.getElementById(id);
+
+    function showNotice(msg) {
+      const n = el('notice');
+      n.textContent = msg;
+      n.classList.remove('hidden');
+    }
+
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      if (tg.BackButton) tg.BackButton.onClick(goCatalog);
+      tg.MainButton.onClick(onMainButton);
+    }
+
+    // ---- Загрузка каталога ----
+    fetch('/api/products')
+      .then((r) => r.json())
+      .then((data) => {
+        products = data.products || [];
+        renderCatalog();
+        updateMainButton();
+      })
+      .catch(() => showNotice('Не удалось загрузить каталог. Попробуйте позже.'));
+
+    function renderCatalog() {
+      const box = el('catalog');
+      box.innerHTML = '';
+      for (const p of products) {
+        const qty = cart[p.id] || 0;
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="thumb">${p.name.replace('Sejaro ', '')}</div>
+          <div class="info">
+            <div class="name">${p.name}</div>
+            <div class="desc">${p.desc}</div>
+            <div class="price">${fmt(p.price)} ₸</div>
+          </div>
+          <div class="controls"></div>`;
+        card.querySelector('.controls').appendChild(controlFor(p, qty));
+        box.appendChild(card);
+      }
+    }
+
+    function controlFor(p, qty) {
+      if (qty <= 0) {
+        const b = document.createElement('button');
+        b.className = 'add';
+        b.textContent = 'В корзину';
+        b.onclick = () => { cart[p.id] = 1; renderCatalog(); updateMainButton(); };
+        return b;
+      }
+      const wrap = document.createElement('div');
+      wrap.className = 'qty';
+      const minus = document.createElement('button');
+      minus.textContent = '−';
+      minus.onclick = () => {
+        cart[p.id] = (cart[p.id] || 0) - 1;
+        if (cart[p.id] <= 0) delete cart[p.id];
+        renderCatalog(); updateMainButton();
+      };
+      const val = document.createElement('span');
+      val.className = 'val';
+      val.textContent = qty;
+      const plus = document.createElement('button');
+      plus.textContent = '+';
+      plus.disabled = qty >= 100;
+      plus.onclick = () => { cart[p.id] = (cart[p.id] || 0) + 1; renderCatalog(); updateMainButton(); };
+      wrap.append(minus, val, plus);
+      return wrap;
+    }
+
+    // ---- Итоги ----
+    function cartItems() {
+      return Object.entries(cart).map(([id, qty]) => ({ id, qty }));
+    }
+    function cartTotal() {
+      return cartItems().reduce((s, it) => {
+        const p = products.find((x) => x.id === it.id);
+        return s + (p ? p.price * it.qty : 0);
+      }, 0);
+    }
+    function cartCount() {
+      return cartItems().reduce((s, it) => s + it.qty, 0);
+    }
+
+    // ---- Кнопки ----
+    function updateMainButton() {
+      if (!tg) return;
+      if (view === 'catalog') {
+        if (cartCount() > 0) {
+          tg.MainButton.setText(`Оформить • ${fmt(cartTotal())} ₸`);
+          tg.MainButton.show();
+        } else {
+          tg.MainButton.hide();
+        }
+      } else {
+        tg.MainButton.setText('Отправить заказ');
+        tg.MainButton.show();
+      }
+    }
+
+    function onMainButton() {
+      if (view === 'catalog') goCheckout();
+      else submitOrder();
+    }
+
+    function goCheckout() {
+      if (cartCount() === 0) return;
+      view = 'checkout';
+      el('catalog-view').classList.add('hidden');
+      el('checkout-view').classList.remove('hidden');
+      renderSummary();
+      if (tg && tg.BackButton) tg.BackButton.show();
+      updateMainButton();
+      window.scrollTo(0, 0);
+    }
+
+    function goCatalog() {
+      view = 'catalog';
+      el('checkout-view').classList.add('hidden');
+      el('catalog-view').classList.remove('hidden');
+      if (tg && tg.BackButton) tg.BackButton.hide();
+      renderCatalog();
+      updateMainButton();
+      window.scrollTo(0, 0);
+    }
+    el('back-to-catalog').onclick = goCatalog;
+
+    function renderSummary() {
+      const rows = cartItems().map((it) => {
+        const p = products.find((x) => x.id === it.id);
+        return `<div class="row"><span>${p.name} × ${it.qty}</span><span>${fmt(p.price * it.qty)} ₸</span></div>`;
+      }).join('');
+      el('order-summary').innerHTML = rows + `<div class="row total"><span>Итого</span><span>${fmt(cartTotal())} ₸</span></div>`;
+    }
+
+    // ---- Отправка ----
+    async function submitOrder() {
+      const customer = {
+        fio: el('f-fio').value.trim(),
+        phone: el('f-phone').value.trim(),
+        city: el('f-city').value.trim(),
+        cdek: el('f-cdek').value.trim(),
+      };
+      if (!customer.fio || !customer.phone || !customer.city || !customer.cdek) {
+        alertMsg('Пожалуйста, заполните все поля.');
+        return;
+      }
+      if (!tg || !tg.initData) {
+        alertMsg('Откройте магазин через Telegram-бота, чтобы оформить заказ.');
+        return;
+      }
+
+      tg.MainButton.showProgress();
+      try {
+        const res = await fetch('/api/order', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ initData: tg.initData, items: cartItems(), customer }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          tg.MainButton.hideProgress();
+          if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+          tg.showPopup(
+            {
+              title: 'Заказ принят!',
+              message: 'Спасибо! Менеджер свяжется с вами для подтверждения и согласования оплаты.',
+              buttons: [{ type: 'ok' }],
+            },
+            () => tg.close()
+          );
+        } else {
+          tg.MainButton.hideProgress();
+          alertMsg('Не удалось отправить заказ. Попробуйте ещё раз.');
+        }
+      } catch (e) {
+        tg.MainButton.hideProgress();
+        alertMsg('Ошибка соединения. Проверьте интернет и попробуйте снова.');
+      }
+    }
+
+    function alertMsg(m) {
+      if (tg && tg.showAlert) tg.showAlert(m);
+      else alert(m);
+    }
+
+    // Если открыто вне Telegram — предупредим, но каталог покажем.
+    if (!tg || !tg.initData) {
+      showNotice('Каталог в режиме просмотра. Для оформления заказа откройте магазин через Telegram-бота.');
+    }
+  </script>
+</body>
+</html>
