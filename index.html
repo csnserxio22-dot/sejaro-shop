@@ -92,6 +92,32 @@
       color: var(--text); border-radius: 12px;
       padding: 12px 14px; font-size: 13.5px; line-height: 1.4; margin: 14px 0 2px;
     }
+    /* Экран условий, который показывается до каталога */
+    .intro { padding-bottom: 8px; }
+    .intro h1 { margin-bottom: 10px; }
+    .intro-block {
+      background: var(--sec-bg); border: 1px solid var(--border);
+      border-radius: 16px; padding: 14px; margin-bottom: 10px;
+    }
+    .intro-block.warn {
+      background: rgba(255, 176, 92, 0.10);
+      border-color: rgba(255, 176, 92, 0.35);
+    }
+    .intro-block h2 {
+      font-size: 15px; font-weight: 700; margin: 0 0 6px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .intro-block p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; color: var(--text); }
+    .intro-block p:last-child { margin-bottom: 0; }
+    .intro-block .muted { color: var(--hint); font-size: 13px; }
+    .intro-block a { color: var(--link); }
+    .agree {
+      display: block; width: 100%; margin: 18px 0 8px;
+      border: none; border-radius: 14px; padding: 15px 18px;
+      background: var(--btn); color: var(--btn-text);
+      font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+
     .success { text-align: center; padding: 48px 16px; }
     .success .check {
       width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 18px;
@@ -102,12 +128,52 @@
     .success .add { padding: 12px 22px; }
     .backlink { color: var(--link); font-size: 14px; background: none; border: none; padding: 8px 0; cursor: pointer; }
   </style>
-</head>
+  ком</head>
 <body>
   <div id="notice" class="notice hidden"></div>
 
+  <!-- УСЛОВИЯ ЗАКАЗА И ДОСТАВКИ (показывается первым) -->
+  <section id="intro-view" class="intro">
+    <h1>Условия заказа и доставки</h1>
+    <div class="sub">Пожалуйста, прочитайте перед тем, как оформить заказ.</div>
+
+    <div class="intro-block">
+      <h2>🧊 Как мы упаковываем препарат</h2>
+      <p>
+        Препарат требует соблюдения холодовой цепи, поэтому каждый заказ мы собираем
+        в индивидуальный термобокс с хладоэлементами. Его ресурса хватает
+        на <b>11 дней транспортировки</b> — этого запаса достаточно с большим переносом:
+        доставка в среднем занимает <b>5–7 дней</b>.
+      </p>
+    </div>
+
+    <div class="intro-block warn">
+      <h2>💳 Оплата — 100% предоплата</h2>
+      <p>
+        Заказ отправляется только после полной оплаты. Принимаем переводы
+        на <b>Kaspi</b> или <b>Freedom Bank</b> — реквизиты пришлёт менеджер,
+        когда подтвердит состав и сумму заказа.
+      </p>
+      <p class="muted">
+        <b>Почему так.</b> Термобокс рассчитан на одну дорогу — до вас. Если посылку
+        не выкупить, обратный путь препарат уже не переживёт: он теряет годность,
+        его нельзя ни отправить другому клиенту, ни вернуть на склад. Предоплата —
+        то, что позволяет нам возить препарат в любой город и держать текущие цены.
+      </p>
+    </div>
+
+    <div class="intro-block">
+      <h2>⭐ Отзывы о доставке</h2>
+      <p id="reviews-line" class="muted">
+        Отзывы покупателей и фото реальных отправлений можно посмотреть в нашей группе.
+      </p>
+    </div>
+
+    <button class="agree" id="agree-btn">Я всё понял — продолжить</button>
+  </section>
+
   <!-- КАТАЛОГ -->
-  <section id="catalog-view">
+  <section id="catalog-view" class="hidden">
     <h1>🏪 Магазин Sejaro</h1>
     <div class="sub">Выберите товары и оформите заказ. Оплату согласует менеджер.</div>
     <div id="catalog"></div>
@@ -148,9 +214,12 @@
     const tg = window.Telegram && window.Telegram.WebApp;
     const fmt = (n) => n.toLocaleString('ru-RU');
 
+    // Ссылка на группу с отзывами о доставке. Пусто — текст без ссылки.
+    const REVIEWS_URL = 'https://t.me/terzepatideclub';
+
     let products = [];
     const cart = {}; // id -> qty
-    let view = 'catalog';
+    let view = 'intro';
 
     const el = (id) => document.getElementById(id);
 
@@ -246,7 +315,10 @@
     // ---- Кнопки ----
     function updateMainButton() {
       if (!tg) return;
-      if (view === 'catalog') {
+      if (view === 'intro') {
+        // На экране условий своя кнопка внизу страницы.
+        tg.MainButton.hide();
+      } else if (view === 'catalog') {
         if (cartCount() > 0) {
           tg.MainButton.setText(`Оформить • ${fmt(cartTotal())} ₸`);
           tg.MainButton.show();
@@ -277,6 +349,7 @@
 
     function goCatalog() {
       view = 'catalog';
+      el('intro-view').classList.add('hidden');
       el('checkout-view').classList.add('hidden');
       el('catalog-view').classList.remove('hidden');
       if (tg && tg.BackButton) tg.BackButton.hide();
@@ -285,6 +358,25 @@
       window.scrollTo(0, 0);
     }
     el('back-to-catalog').onclick = goCatalog;
+
+    // ---- Экран условий ----
+    el('agree-btn').onclick = () => {
+      if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      goCatalog();
+    };
+
+    if (REVIEWS_URL) {
+      const line = el('reviews-line');
+      line.innerHTML =
+        'Отзывы покупателей и фото реальных отправлений можно посмотреть ' +
+        '<a href="' + REVIEWS_URL + '" id="reviews-link">в нашей группе</a>.';
+      el('reviews-link').onclick = (e) => {
+        if (tg && tg.openTelegramLink && /^https:\/\/t\.me\//.test(REVIEWS_URL)) {
+          e.preventDefault();
+          tg.openTelegramLink(REVIEWS_URL);
+        }
+      };
+    }
 
     function renderSummary() {
       const rows = cartItems().map((it) => {
